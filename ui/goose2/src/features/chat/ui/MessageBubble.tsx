@@ -40,6 +40,8 @@ import type {
   MessageContent,
   TextContent,
   ImageContent,
+  McpAppContent,
+  ToolRequestContent,
   ToolResponseContent,
   ThinkingContent,
   ReasoningContent as ReasoningContentType,
@@ -90,6 +92,8 @@ interface MessageBubbleProps {
   onCopy?: () => void;
   onRetryMessage?: (messageId: string) => void;
   onEditMessage?: (messageId: string) => void;
+  onSendMcpAppMessage?: (text: string) => void | Promise<void>;
+  onMcpAppAutoScroll?: (element: HTMLElement | null) => void;
 }
 
 interface ContentSection {
@@ -194,6 +198,9 @@ function renderContentBlock(
   options: {
     defaultImageAlt: string;
     redactedThinking: string;
+    contentBlocks: MessageContent[];
+    onSendMcpAppMessage?: (text: string) => void | Promise<void>;
+    onMcpAppAutoScroll?: (element: HTMLElement | null) => void;
   },
   isStreamingMsg?: boolean,
   isUserMessage?: boolean,
@@ -232,9 +239,43 @@ function renderContentBlock(
     case "toolResponse":
       // Handled by groupContentSections toolChain rendering
       return null;
-    case "mcpApp":
-      return <McpAppView key={`mcp-app-${index}`} payload={content.payload} />;
-    case "thinking":
+    case "mcpApp": {
+      const mcpApp = content as McpAppContent;
+      const matchingToolInput = options.contentBlocks.find(
+        (block): block is ToolRequestContent =>
+          block.type === "toolRequest" &&
+          block.id === mcpApp.payload.toolCallId,
+      );
+      const matchingToolResponse = options.contentBlocks.find(
+        (block): block is ToolResponseContent =>
+          block.type === "toolResponse" &&
+          block.id === mcpApp.payload.toolCallId,
+      );
+
+      return (
+        <McpAppView
+          key={`mcp-app-${index}`}
+          payload={mcpApp.payload}
+          toolInput={matchingToolInput?.arguments}
+          toolResponse={matchingToolResponse}
+          onSendMessage={options.onSendMcpAppMessage}
+          onAutoScrollRequest={options.onMcpAppAutoScroll}
+        />
+      );
+    }
+    case "thinking": {
+      const th = content as ThinkingContent;
+      return (
+        <Reasoning
+          key={`thinking-${index}`}
+          isStreaming={isStreamingMsg}
+          defaultOpen={false}
+        >
+          <ReasoningTrigger />
+          <ReasoningContent>{th.text}</ReasoningContent>
+        </Reasoning>
+      );
+    }
     case "reasoning": {
       const text = (content as ThinkingContent | ReasoningContentType).text;
       return (
@@ -313,6 +354,8 @@ export const MessageBubble = memo(function MessageBubble({
   isStreaming,
   onRetryMessage,
   onEditMessage,
+  onSendMcpAppMessage,
+  onMcpAppAutoScroll,
 }: MessageBubbleProps) {
   const { t } = useTranslation(["chat", "common"]);
   const { formatDate } = useLocaleFormatting();
@@ -345,6 +388,7 @@ export const MessageBubble = memo(function MessageBubble({
             renderContentBlock(c, i, {
               defaultImageAlt: t("message.defaultImageAlt"),
               redactedThinking: t("message.redactedThinking"),
+              contentBlocks: content,
             }),
           )}
         </div>
@@ -454,6 +498,9 @@ export const MessageBubble = memo(function MessageBubble({
                   {
                     defaultImageAlt: t("message.defaultImageAlt"),
                     redactedThinking: t("message.redactedThinking"),
+                    contentBlocks: content,
+                    onSendMcpAppMessage,
+                    onMcpAppAutoScroll,
                   },
                   isStreaming,
                   isUser,
