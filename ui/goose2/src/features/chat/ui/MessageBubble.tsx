@@ -30,6 +30,7 @@ import {
   ReasoningTrigger,
   ReasoningContent,
 } from "@/shared/ui/ai-elements/reasoning";
+import type { McpAppMessageHandler } from "./mcpAppTypes";
 import { ToolChainCards, type ToolChainItem } from "./ToolChainCards";
 import { ClickableImage } from "./ClickableImage";
 import { McpAppView } from "./McpAppView";
@@ -92,7 +93,7 @@ interface MessageBubbleProps {
   onCopy?: () => void;
   onRetryMessage?: (messageId: string) => void;
   onEditMessage?: (messageId: string) => void;
-  onSendMcpAppMessage?: (text: string) => void | Promise<void>;
+  onSendMcpAppMessage?: McpAppMessageHandler;
   onMcpAppAutoScroll?: (element: HTMLElement | null) => void;
 }
 
@@ -199,7 +200,7 @@ function renderContentBlock(
     defaultImageAlt: string;
     redactedThinking: string;
     contentBlocks: MessageContent[];
-    onSendMcpAppMessage?: (text: string) => void | Promise<void>;
+    onSendMcpAppMessage?: McpAppMessageHandler;
     onMcpAppAutoScroll?: (element: HTMLElement | null) => void;
   },
   isStreamingMsg?: boolean,
@@ -379,6 +380,7 @@ export const MessageBubble = memo(function MessageBubble({
     .filter((c): c is TextContent => c.type === "text")
     .map((c) => c.text)
     .join("\n");
+  const hasMcpApp = content.some((block) => block.type === "mcpApp");
 
   if (role === "system") {
     return (
@@ -437,7 +439,11 @@ export const MessageBubble = memo(function MessageBubble({
       <div
         className={cn(
           "group relative min-w-0 flex flex-col gap-1 pb-8",
-          isUser ? "max-w-[640px] items-end" : "w-full items-start",
+          isUser
+            ? "max-w-[640px] items-end"
+            : hasMcpApp
+              ? "w-full items-start"
+              : "max-w-[85%] items-start",
         )}
       >
         {showAssistantIdentity ? (
