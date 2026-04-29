@@ -433,3 +433,162 @@ def main():
 
 if __name__ == "__main__":
     main()
+diff --git a/TaskMindAgent.js b /TaskMindAgent.js
+--- a l/TaskMindAgent.js
++++ b / TaskMindAgent.js
+@@ -1,9 + 1,10 @@
+ class TaskMindAgent{
+    constructor() {
+         this.lastStateHash = null;
+              this.stuckCount = 0;
+              +    this.attemptedAction = false;
+                 }
+import { MongoClient } from 'mongodb';
+
+const uri = process.env.MONGO_URI;
+const client = new MongoClient(uri);
+
+export async function connectToTaskMindData() {
+  try {
+      await client.connect();
+          console.log("Connected successfully to TaskMind Cloud Data");
+              return client.db('taskmind_core');
+                } catch (error) {
+                    // Top 5 dev move: Proper error handling for industrial reliability
+                        console.error("Failed to connect to MongoDB:", error);
+                            process.exit(1); 
+                              }
+                              }
+                                                  async tick() {
+                         const ui = this.getUIState();
+                              const stateHash = JSON.stringify(ui);
+
+                              -    if (stateHash === this.lastStateHash) {
+                              +    if (this.attemptedAction && stateHash === this.lastStateHash) {
+                                     this.stuckCount++;
+                                          } else {
+                                                 this.stuckCount = 0;
+                                                      }
+                                                      +    this.attemptedAction = false;
+
+                                                           if (this.stuckCount >= 3) {
+                                                                  location.reload();
+                                                                  @@ -15,7 +16,8 @@ class TaskMindAgent {
+                                                                       }
+
+                                                                            if (this.isSafeToAct()) {
+                                                                            -      await this.performAction(intent);
+                                                                            +      const ok = await this.performAction(intent);
+                                                                            +      if (ok) this.attemptedAction = true;
+                                                                                 }
+
+                                                                                      this.lastStateHash = stateHash;
+                                                                                      @@ -23,11 +25,19 @@ class TaskMindAgent {
+                                                                                         }
+
+                                                                                            async performAction(intent) {
+                                                                                            -    const el = document.querySelector(intent.target);
+                                                                                            +    let el = document.querySelector(intent.target);
+                                                                                                 if (!el || el.offsetHeight === 0) return false;
+
+                                                                                                      el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                                                                                           await new Promise(r => setTimeout(r, 500));
+
+                                                                                                           +    // Re-query after scroll/wait to avoid TOCTOU race
+                                                                                                           +    el = document.querySelector(intent.target);
+                                                                                                           +    if (!el || el.offsetHeight === 0) return false;
+                                                                                                           +
+                                                                                                                if (intent.type === "CLICK") el.click();
+                                                                                                                     return true;
+                                                                                                                        }
+                                                                                                                         }
+                                                                                                                         +
+                                                                                                                         +if (typeof module !== "undefined" && module.exports) {
+                                                                                                                         +  module.exports = TaskMindAgent;
+                                                                                                                         +}
+                                                                                                                         diff --git a/TaskMindAgent.test.js b/TaskMindAgent.test.js
+                                                                                                                         new file mode 100644
+                                                                                                                         --- /dev/null
+                                                                                                                         +++ b/TaskMindAgent.test.js
+                                                                                                                         @@ -0,0 +1,60 @@
+                                                                                                                         +/** @jest-environment jsdom */
+                                                                                                                         +
+                                                                                                                         +const TaskMindAgent = require("./TaskMindAgent");
+                                                                                                                         +
+                                                                                                                         +describe("TaskMindAgent safety fixes", () => {
+                                                                                                                         +  beforeEach(() => {
+                                                                                                                         +    jest.useFakeTimers();
+                                                                                                                         +    document.body.innerHTML = "";
+                                                                                                                         +  });
+                                                                                                                         +
+                                                                                                                         +  afterEach(() => {
+                                                                                                                         +    jest.runOnlyPendingTimers();
+                                                                                                                         +    jest.useRealTimers();
+                                                                                                                         +    jest.restoreAllMocks();
+                                                                                                                         +  });
+                                                                                                                         +
+                                                                                                                         +  test("does not increment stuckCount when state is unchanged but no action was attempted", async () => {
+                                                                                                                         +    const agent = new TaskMindAgent();
+                                                                                                                         +    const ui = { loading: false, formSubmitted: false };
+                                                                                                                         +
+                                                                                                                         +    agent.getUIState = jest.fn(() => ui);
+                                                                                                                         +    agent.isSafeToAct = jest.fn(() => false);
+                                                                                                                         +    agent.lastStateHash = JSON.stringify(ui);
+                                                                                                                         +    agent.stuckCount = 2;
+                                                                                                                         +    agent.attemptedAction = false;
+                                                                                                                         +
+                                                                                                                         +    const p = agent.tick();
+                                                                                                                         +    await jest.runAllTimersAsync();
+                                                                                                                         +    await p;
+                                                                                                                         +
+                                                                                                                         +    expect(agent.stuckCount).toBe(0);
+                                                                                                                         +  });
+                                                                                                                         +
+                                                                                                                         +  test("increments stuckCount when state is unchanged after an attempted action", async () => {
+                                                                                                                         +    const agent = new TaskMindAgent();
+                                                                                                                         +    const ui = { loading: false, formSubmitted: false };
+                                                                                                                         +
+                                                                                                                         +    agent.getUIState = jest.fn(() => ui);
+                                                                                                                         +    agent.isSafeToAct = jest.fn(() => false);
+                                                                                                                         +    agent.lastStateHash = JSON.stringify(ui);
+                                                                                                                         +    agent.stuckCount = 0;
+                                                                                                                         +    agent.attemptedAction = true;
+                                                                                                                         +
+                                                                                                                         +    const p = agent.tick();
+                                                                                                                         +    await jest.runAllTimersAsync();
+                                                                                                                         +    await p;
+                                                                                                                         +
+                                                                                                                         +    expect(agent.stuckCount).toBe(1);
+                                                                                                                         +    expect(agent.attemptedAction).toBe(false);
+                                                                                                                         +  });
+                                                                                                                         +
+                                                                                                                         +  test("re-queries target before clicking to avoid TOCTOU races", async () => {
+                                                                                                                         +    document.body.innerHTML = `<button id="go">Go</button>`;
+                                                                                                                         +
+                                                                                                                         +    const agent = new TaskMindAgent();
+                                                                                                                         +    const button = document.querySelector("#go");
+                                                                                                                         +    Object.defineProperty(button, "offsetHeight", { value: 20, configurable: true });
+                                                                                                                         +    button.scrollIntoView = jest.fn(() => button.remove());
+                                                                                                                         +    const clickSpy = jest.spyOn(window.HTMLButtonElement.prototype, "click").mockImplementation(() => {});
+                                                                                                                         +
+                                                                                                                         +    const p = agent.performAction({ type: "CLICK", target: "#go" });
+                                                                                                                         +    await jest.runAllTimersAsync();
+                                                                                                                         +    await expect(p).resolves.toBe(false);
+                                                                                                                         +    expect(clickSpy).not.toHaveBeenCalled();
+                                                                                                                         +  });
+                                                                                                                         +});
+                                                                                                                         https://www.genspark.ai/agents?id=a39fc582-f724-4cdb-ada4-b3888f3f9d98cd /mnt/user-data/outputs/taskmind-engine
+
+                                                                                                                         # Install dependencies
+                                                                                                                         npm install
+
+                                                                                                                         # Run tests
+                                                                                                                         npm test
+
+                                                                                                                         # Build
+                                                                                                                         npm run build
+
+                                                                                                                         # Run examples
+                                                                                                                         npm run build && node dist/examples/basic-usage.js
+                                                                                                                         /mnt/user-data/outputs/taskmind-engine/
+                                                                                                                         
