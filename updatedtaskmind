@@ -1,0 +1,92 @@
+app/src/main/java/com/taskmind/
+├── MainARActivity.kt
+├── IndustryManager.kt
+├── TranslationEngine.kt
+├── GlassesMicManager.kt
+├── HUDCanvasManager.kt
+├── GestureManager.kt
+├── BillingManager.kt
+├── PrivacyUtils.kt
+├── VuzixARBridge.kt
+└── PredictiveEngine.kt
+package com.taskmind
+
+class IndustryManager(private val context: android.content.Context) {
+        var currentIndustry = "base"
+            private val unlocked = mutableSetOf("base")
+
+                val allIndustries = listOf("medical","mechanics","construction","diy","logistics","warehouses","truckdriver","programmer","cooking","hobbies","dogtrainer","mentalhealth","parenting")
+
+                    fun isUnlocked(ind: String): Boolean = unlocked.contains(ind) || BillingManager.hasPurchased(ind)
+
+                        fun loadAdapter(ind: String): TranslatorAdapter {
+                                    if (!isUnlocked(ind) && ind != "base") {
+                                                    // paywall HUD triggered in HUDCanvasManager
+                                                                return BaseAdapter()
+                                    }
+                                            return when (ind) {
+                                                            "medical" -> MedicalQLoRAAdapter()      // premium
+                                                                        "mechanics" -> MechanicsQLoRAAdapter()
+                                                                                    "construction" -> ConstructionQLoRAAdapter()
+                                                                                                "diy" -> DiyQLoRAAdapter()
+                                                                                                            "logistics" -> LogisticsQLoRAAdapter()
+                                                                                                                        "warehouses" -> WarehousesQLoRAAdapter()
+                                                                                                                                    "truckdriver" -> TruckDriverQLoRAAdapter()
+                                                                                                                                                "programmer" -> ProgrammerQLoRAAdapter()
+                                                                                                                                                            "cooking" -> CookingQLoRAAdapter()
+                                                                                                                                                                        "hobbies" -> HobbiesQLoRAAdapter()
+                                                                                                                                                                                    "dogtrainer" -> DogTrainerQLoRAAdapter()
+                                                                                                                                                                                                "mentalhealth" -> MentalHealthQLoRAAdapter()
+                                                                                                                                                                                                            "parenting" -> ParentingQLoRAAdapter()
+                                                                                                                                                                                                                        else -> BaseQLoRAAdapter()
+                                            }
+                        }
+
+                            fun cycle(dir: Int) {
+                                        val idx = allIndustries.indexOf(currentIndustry)
+                                                currentIndustry = allIndustries[(idx + dir + allIndustries.size) % allIndustries.size]
+                            }
+
+                                fun getTheme(): String = when (currentIndustry) {
+                                            "medical" -> "white-on-blue"
+                                                    "mechanics", "construction" -> "yellow-on-black"
+                                                            "mentalhealth", "parenting" -> "soft-pastel"
+                                                                    else -> "green-on-black"
+                                }
+}package com.taskmind
+
+class GestureManager(private val activity: android.app.Activity, private val callback: (String) -> Unit) {
+        fun initVuzixTouchpad() { /* onKeyDown + trackball overrides */ }
+}package com.taskmind
+
+object BillingManager {
+        fun hasPurchased(industry: String): Boolean = false // real Google Play Billing here
+            fun launchPurchase(industry: String) { /* IAP flow */ }
+}package com.taskmind
+
+class PredictiveEngine(private val context: android.content.Context) {
+        fun update(gesture: String, industry: String) { /* ML next-step suggestion */ }
+            fun suggestNext(industry: String, lastText: String) { /* HUD pre-render */ }
+}package com.taskmind
+
+object VuzixARBridge {
+        fun startAudioStream(callback: (ByteArray) -> Unit) { /* real SDK call */ }
+            fun stopAudioStream() {}
+}<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+        android:layout_height="match_parent"
+            android:background="#001100">
+                <!-- Vuzix HUD canvas view goes here -->
+                </RelativeLayout>
+                
+}
+}
+}
+}
+                                }
+                            }
+                                            }
+                                    }
+                        }
+}
