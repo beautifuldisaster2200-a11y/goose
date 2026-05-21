@@ -1,0 +1,32 @@
+name: Protocol Buffers
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  buf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: bufbuild/buf-setup-action@v1
+
+      - name: Update dependencies
+        run: buf dep update
+
+      - name: Lint proto files
+        run: buf lint
+
+      - name: Check for breaking changes
+        run: buf breaking --against .
+
+      - name: Format proto files
+        run: buf format -w
+
+      - name: Build / verify
+        run: buf build
